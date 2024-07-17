@@ -48,13 +48,34 @@ const multerObj = multer(
     }
 );
 
-router.get("/getPostList", async(req,res)=>{
+router.get("/getPostList/:word", async(req,res)=>{
     try{
         const connection = await getConnection();
-        const sql = "select* from post order by id desc";
-        const [rows, fields] = await connection.query(sql);
 
-        res.send({postList:rows})
+        if(req.params.word != "n"){
+            let sql = "select* from hashtag where word=?";
+            let [rows, fields] = await connection.query(sql,[req.params.word]);
+
+            if(rows.length >= 1){
+                let wordid = rows[0].id;
+                sql = "select* from post where id in(select postid from post_hash where hashid=?) order by id desc"
+                let [rows2, fields2] = await connection.query(sql, [wordid]);
+
+                res.send({postList:rows2});
+            }else{
+                sql = "select* from post order by id desc";
+
+                let [rows3, fields3] = await connection.query(sql);
+
+                res.send({postList:rows3});
+            }
+        }else{
+            sql = "select* from post order by id desc";
+
+            let [rows3, fields3] = await connection.query(sql);
+
+            res.send({postList:rows3});
+        }
 
     }catch(err){
         next(err);
@@ -97,7 +118,7 @@ router.post("/insertPost", async(req,res)=>{
                 if(rows.length>=1){ //테이블에 데이터가 존재한다면
                     tagid = rows[0].id;
 
-                }else{
+                }else{ // 없으면 태그 테이블 삽입
                     sql = "insert into hashtag(word) values(?)";
                     let[result2, fields3] = await connection.query(sql, [tag]);
                     tagid = result2.insertId;
@@ -204,6 +225,41 @@ router.post("/addLike", async(req,res)=>{
 
         console.error(err);
 
+    }
+})
+
+router.post("/follow", async(req,res)=>{
+    const {follow_from, follow_to} = req.body;
+
+    try{
+        const sql = "insert into follow(follow_from, follow_to) values(?,?)";
+        const connection = await getConnection();
+        const [rows, fields2] = await connection.query(sql, [follow_from, follow_to]);
+
+        res.send(rows);
+
+    }catch(err){
+        console.error(err);
+    }
+})
+
+router.get("/getFollowings", async(req,res)=>{
+
+    try{
+        const connection = await getConnection();
+        sql = "select* from follow where follow_to=?"; 
+        let [rows2, fields2] = await connection.query(sql, [req.user.nickname]);
+
+        let followings = (rows2.length >= 1) ? (
+            rows2.map((f)=>{
+                f.follow_from;
+            })
+        ) : [];
+
+        res.send(followings);
+
+    }catch(err){
+        console.error(err);
     }
 })
 

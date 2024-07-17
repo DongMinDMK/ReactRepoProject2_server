@@ -139,9 +139,41 @@ router.post("/loginLocal", async(req,res,next)=>{
     })(req, res, next)
 })
 
-router.get("/getLoginUser", (req,res)=>{
+router.get("/getLoginUser", async(req,res)=>{
+
     const loginUser = req.user;
-    res.send({loginUser:loginUser});
+
+    try{
+        const connection = await getConnection();
+        let sql = "select* from follow where follow_from=?"; 
+        let [rows, fields] = await connection.query(sql, [req.user.nickname]);
+
+        let followers = (rows.length >= 1) ? (
+            rows.map((f)=>{
+                f.follow_to;
+            })
+        ) : [];
+
+        sql = "select* from follow where follow_to=?"; 
+        let [rows2, fields2] = await connection.query(sql, [req.user.nickname]);
+
+        let followings = (rows.length >= 1) ? (
+            rows.map((f)=>{
+                f.follow_from;
+            })
+        ) : [];
+
+        res.send({loginUser:loginUser, followers:followers, followings:followings});
+
+    }catch(err){
+        console.error(err);
+    }
+
+})
+
+router.get("/logout", async(req,res)=>{
+    req.session.destroy();
+    res.send("OK");
 })
 
 
